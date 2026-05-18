@@ -271,7 +271,7 @@ const FORTUNES = [
           const a = env * fade * radAtten;
           if (a < 0.015) continue;
           ctx.lineWidth = 1.1 + 0.9 * env;
-          ctx.strokeStyle = `rgba(220,238,248,${Math.min(1, a*0.75)})`;
+          ctx.strokeStyle = `rgba(220,238,248,${Math.min(1, a*1.1)})`;
           ctx.beginPath();
           ctx.arc(r.cx, r.cy, ringR, 0, Math.PI*2);
           ctx.stroke();
