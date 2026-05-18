@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Wet paper sticker</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Island+Moments&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      #2F6591;
+    --ink-deep: #1F4F74;
+    --ui:       #4D789A;
+    --footer:   #3F7199;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #DCECF4;
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  body { display: grid; place-items: center; }
+
+  .water {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(225deg, #D4E8F5 0%, #B8CCE0 100%);
+  }
+  /* ambient ring halos */
+  .water::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 118px, rgba(76,130,164,0.09) 119px, rgba(76,130,164,0.09) 122px, transparent 123px),
+      radial-gradient(circle at 50% 50%, transparent 192px, rgba(76,130,164,0.07) 193px, rgba(76,130,164,0.07) 197px, transparent 198px),
+      radial-gradient(circle at 50% 50%, transparent 272px, rgba(76,130,164,0.05) 273px, rgba(76,130,164,0.05) 278px, transparent 279px),
+      radial-gradient(circle at 50% 50%, transparent 362px, rgba(76,130,164,0.04) 363px, rgba(76,130,164,0.04) 369px, transparent 370px),
+      radial-gradient(circle at 50% 50%, transparent 460px, rgba(76,130,164,0.03) 461px, rgba(76,130,164,0.03) 468px, transparent 469px);
+    filter: blur(10px);
+    pointer-events: none;
+  }
+
+  .ripples {
+    position: fixed; inset: 0; z-index: 1;
+    pointer-events: none;
+    filter: blur(3px);
+    opacity: 0.80;
+  }
+
+  .scene {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 28px;
+  }
+
+  .hint {
+    font-size: 12px; letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(77,120,154,0.82);
+    font-weight: 500;
+    display: flex; align-items: center; gap: 12px;
+    white-space: nowrap;
+  }
+  .hint .dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: currentColor; border-radius: 50%;
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .hint .dot:nth-child(4) { animation-delay: 0.45s; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50%       { opacity: 0.85; transform: scale(1.35); }
+  }
+
+  .sticker-wrap {
+    position: relative;
+    width: 360px; height: 360px;
+    transition: transform 380ms cubic-bezier(.18,.74,.31,1.02);
+    will-change: transform;
+  }
+  .sticker-wrap.pressing {
+    transform: translateY(3px) scale(0.983);
+    transition: transform 200ms cubic-bezier(.4,0,.2,1);
+  }
+
+  @media (max-width: 480px) {
+    .sticker-wrap { width: min(340px,90vw); height: min(340px,90vw); }
+  }
+
+  .card-bg {
+    position: absolute; inset: 0;
+    border-radius: 24px;
+    background-color: #fcfaf8;
+    border: none;
+    box-shadow:
+      0 40px 100px -10px rgba(45, 92, 120, 0.15),
+      0 20px 40px -5px rgba(0, 0, 0, 0.08),
+      0 5px 10px rgba(0, 0, 0, 0.03);
+    pointer-events: none;
+    transition: all 450ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .pressing .card-bg {
+    box-shadow:
+      0 15px 30px -5px rgba(45, 92, 120, 0.1),
+      0 8px 15px -5px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-texture {
+    position: absolute; inset: 0;
+    border-radius: 24px;
+    pointer-events: none;
+    z-index: 4;
+    background-image: url('./texture1.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.2;
+    mix-blend-mode: multiply;
+    filter: saturate(0) contrast(1.1) brightness(1.05);
+    transition: opacity 0.5s ease;
+  }
+
+  .card-inner-edge {
+    position: absolute; inset: 0;
+    border-radius: 24px;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow:
+      inset 0 4px 10px rgba(255,255,255,0.15),
+      inset 0 0 0 1px rgba(80,120,140,0.05);
+  }
+
+  .card-area {
+    position: absolute; inset: 0;
+    border-radius: 24px; overflow: hidden;
+    cursor: grab; touch-action: none; z-index: 2;
+  }
+  .card-area:active { cursor: grabbing; }
+  .card-area canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .card-area canvas.wet { z-index: 2; }
+
+  .reset {
+    appearance: none;
+    background: rgba(255,255,255,0.42);
+    border: none;
+    color: var(--footer);
+    font-family: inherit;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    padding: 10px 22px; border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: all 300ms ease;
+    display: inline-flex; align-items: center; gap: 9px;
+    white-space: nowrap;
+    box-shadow: none;
+  }
+  .reset:hover {
+    background: rgba(255,255,255,0.65);
+    border-color: rgba(255,255,255,0.68);
+    color: var(--ink-deep);
+  }
+  .reset svg { display: block; }
+</style>
+</head>
+<body>
+<div class="water"></div>
+<canvas class="ripples" id="ripples"></canvas>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script>
+window.__sfx = {
+  press:  new URL('./press.wav',  location.href).href,
+  dryoff: new URL('./dryoff.wav', location.href).href
+};
+</script>
+<script type="text/babel" data-presets="env,react">
+const { useRef, useEffect, useState, useCallback } = React;
+
+// Logical wet-field grid — not screen pixels
+const W = 280;
+const H = 320;
+
+const FORTUNES = [
+  ["The right opportunity", "is already moving", "toward you"],
+  ["What is meant for you", "will not pass you"],
+  ["Rest is part", "of the path"],
+  ["Your name is on something,", "somewhere"],
+  ["The answer is", "already in motion"],
+  ["The version of you", "that got rejected", "was still enough"],
+  ["Rest is not", "falling behind"],
+  ["The job that fits you", "is also looking for you"],
+  ["Progress doesn't always", "look like progress"],
+  ["Trust the timing", "of your life"],
+  ["You are not behind,", "you are on", "a different path"],
+  ["Let the right one", "find you too"],
+  ["The universe is", "rearranging itself for you"],
+  ["Be here.", "the future is being", "built right now"],
+  ["Closed doors are", "just slow doors"],
+];
+
+// Fullscreen ripple canvas — sleeps when queue is empty
+(function setupRipples() {
+  const cvs = document.getElementById('ripples');
+  const ctx = cvs.getContext('2d');
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let Wv = 0, Hv = 0;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    Wv = window.innerWidth;
+    Hv = window.innerHeight;
+    cvs.width  = Wv * DPR;
+    cvs.height = Hv * DPR;
+    cvs.style.width  = Wv + 'px';
+    cvs.style.height = Hv + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const ripples = [];
+  let last = performance.now();
+  let rafId = null;
+
+  const NUM_CRESTS = 9;
+  const CREST_PROFILE = (() => {
+    const a = [0];
+    for (let k = 1; k < NUM_CRESTS; k++) a.push(a[k-1] + (0.11 + k*0.035));
+    return a;
+  })();
+  const PROFILE_MAX = CREST_PROFILE[NUM_CRESTS - 1];
+
+  function tick(now) {
+    try {
+      const dt = Math.min(48, now - last); // clamp dt to avoid jumps after tab switch
+      last = now;
+      ctx.clearRect(0, 0, Wv, Hv);
+      ctx.lineCap = 'round';
+
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.age += dt;
+        const t = r.age / r.life;
+        if (t >= 1) { ripples.splice(i, 1); continue; }
+        if (t < 0) continue;
+        const easeLead = 1 - Math.pow(1 - t, 1.9);
+        const lead = r.leadMax * easeLead;
+        const packetLen = r.packetLen0 + r.packetLenGrowth * t;
+        const fade = Math.pow(1 - t, 1.1);
+
+        for (let k = 0; k < NUM_CRESTS; k++) {
+          const off = lead - (CREST_PROFILE[k]/PROFILE_MAX) * packetLen;
+          if (off <= 0) break;
+          const d = (k - 1.6) / 2.4;
+          const env = Math.exp(-d*d);
+          const ringR = r.sourceR + off;
+          const radAtten = 1 / Math.sqrt(1 + ringR * 0.012);
+          const a = env * fade * radAtten;
+          if (a < 0.015) continue;
+          ctx.lineWidth = 1.1 + 0.9 * env;
+          ctx.strokeStyle = `rgba(220,238,248,${Math.min(1, a*0.75)})`;
+          ctx.beginPath();
+          ctx.arc(r.cx, r.cy, ringR, 0, Math.PI*2);
+          ctx.stroke();
+          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = `rgba(76,130,164,${Math.min(1, a*0.28)})`;
+          ctx.beginPath();
+          ctx.arc(r.cx, r.cy, Math.max(0.5, ringR - 1.4), 0, Math.PI*2);
+          ctx.stroke();
+        }
+      }
+    } catch (err) { console.warn('ripple err', err); }
+
+    if (ripples.length > 0) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      ctx.clearRect(0, 0, Wv, Hv);
+      rafId = null;
+    }
+  }
+
+  function startLoop() {
+    if (rafId === null) {
+      last = performance.now();
+      rafId = requestAnimationFrame(tick);
+    }
+  }
+
+  // Two wave packets per press: a slow wide one + a fast narrow one
+  window.__spawnRipple = function (cx, cy, sourceR) {
+    const seed = Math.random();
+    ripples.push({
+      cx, cy, sourceR,
+      leadMax: 420 + seed*60, packetLen0: 55, packetLenGrowth: 100,
+      age: 0, life: 2600 + seed*200
+    });
+    ripples.push({
+      cx, cy, sourceR,
+      leadMax: 240 + seed*30, packetLen0: 40, packetLenGrowth: 55,
+      age: -260, life: 2000
+    });
+    startLoop();
+  };
+})();
+
+// Fractal noise field — multiple octaves blended for organic texture
+function makeNoiseField(Wn, Hn) {
+  function buildOctave(low, blur, weight, base) {
+    const c = document.createElement('canvas');
+    c.width = low; c.height = low;
+    const cx = c.getContext('2d');
+    const id = cx.createImageData(low, low);
+    for (let i = 0; i < low*low; i++) {
+      const v = Math.random() * 255;
+      id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = v;
+      id.data[i*4+3] = 255;
+    }
+    cx.putImageData(id, 0, 0);
+    const big = document.createElement('canvas');
+    big.width = Wn; big.height = Hn;
+    const bx = big.getContext('2d');
+    bx.imageSmoothingEnabled = true;
+    bx.imageSmoothingQuality = 'high';
+    bx.filter = `blur(${blur}px)`;
+    bx.drawImage(c, 0, 0, Wn, Hn);
+    const data = bx.getImageData(0, 0, Wn, Hn).data;
+    let mn = 255, mx = 0;
+    for (let i = 0; i < Wn*Hn; i++) {
+      const v = data[i*4];
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+    }
+    const rng = (mx - mn) || 1;
+    for (let i = 0; i < Wn*Hn; i++) {
+      const n = ((data[i*4] - mn) / rng) * 2 - 1;
+      base[i] = base[i] * (1 - weight) + n * weight;
+    }
+  }
+  const arr = new Float32Array(Wn * Hn);
+  buildOctave(40, 3.0, 1.00, arr);
+  buildOctave(90, 1.4, 0.45, arr);
+  buildOctave(180, 0.6, 0.25, arr);
+  return arr;
+}
+
+function WetSticker() {
+  const cardRef        = useRef(null);
+  const wetCvsRef      = useRef(null);
+  const wetRef         = useRef(null);
+  const noiseRef       = useRef(null);
+  const noise2Ref      = useRef(null);
+  const maskImgRef     = useRef(null);
+  const sourcesRef     = useRef([]);
+  const pressedRef     = useRef(false);
+  const rafRef         = useRef(null);
+  const lastTRef       = useRef(performance.now());
+  const needsRenderRef = useRef(true);
+  const textImgRef     = useRef(null);
+  const currentQuoteRef    = useRef(null);
+  const drawFunctionsRef   = useRef({});
+  const isDryingRef        = useRef(false);
+  const dryCompleteRef     = useRef(null);
+
+  const [pressing, setPressing] = useState(false);
+  const pressCountRef = useRef(1);
+
+  // ── Audio ────────────────────────────────────────────────────
+  const audioElementsRef = useRef({});
+
+  const initAudio = () => {
+    if (audioElementsRef.current._ready) return;
+    ['press', 'dryoff'].forEach(name => {
+      const a = new Audio(window.__sfx[name]);
+      a.preload = 'auto';
+      audioElementsRef.current[name] = a;
+    });
+    audioElementsRef.current._ready = true;
+  };
+
+  const playSound = (name, offset = 0) => {
+    const src = audioElementsRef.current[name];
+    if (!src) return;
+    try {
+      const clone = src.cloneNode();
+      clone.volume = 0.6;
+      clone.currentTime = offset;
+      clone.play().catch(() => {});
+    } catch (e) {}
+  };
+
+  // ── Init ─────────────────────────────────────────────────────
+  useEffect(() => {
+    wetRef.current    = new Float32Array(W * H);
+    noiseRef.current  = makeNoiseField(W, H);
+    noise2Ref.current = makeNoiseField(W, H);
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    const setupCanvas = (c) => {
+      c.width  = W * DPR;
+      c.height = H * DPR;
+      c.style.width  = '100%';
+      c.style.height = '100%';
+      const cx = c.getContext('2d');
+      cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      return cx;
+    };
+    const wctx = setupCanvas(wetCvsRef.current);
+
+    currentQuoteRef.current = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];
+
+    // Offscreen text canvas — used as alpha mask in the render loop
+    const tc = document.createElement('canvas');
+    tc.width = W; tc.height = H;
+    const tctx = tc.getContext('2d');
+    const maxLineWidth = W - 48;
+    let fixedFontSize = 34;
+
+    const drawText = () => {
+      const lines = currentQuoteRef.current;
+      const lineHeight = 52;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+      tc.width = W * DPR;
+      tc.height = H * DPR;
+
+      const startY = -((lines.length - 1) * lineHeight) / 2;
+
+      tctx.save();
+      tctx.scale(DPR, DPR);
+      tctx.rect(0, 0, W, H);
+      tctx.clip();
+      tctx.fillStyle = '#000';
+
+      tctx.save();
+      tctx.font = `400 ${fixedFontSize}px "Island Moments", cursive`;
+      tctx.textAlign = 'center';
+      tctx.textBaseline = 'middle';
+      tctx.translate(W / 2, H / 2);
+      tctx.rotate(-0.022);
+      lines.forEach((line, i) => tctx.fillText(line, 0, startY + i * lineHeight));
+      tctx.restore();
+
+      tctx.font = '400 8px "IBM Plex Mono", ui-monospace, monospace';
+      tctx.letterSpacing = '0.28em';
+      tctx.textBaseline = 'alphabetic';
+      tctx.textAlign = 'left';
+      tctx.fillText(`N.${pressCountRef.current}`, W * 0.10, H - 32);
+      tctx.textAlign = 'right';
+      tctx.fillText('SOAK · 2026', W * 0.90, H - 32);
+
+      tctx.restore();
+
+      // Downsample to W×H — render loop indexes pixels as i = 0..W*H-1
+      const maskCvs = document.createElement('canvas');
+      maskCvs.width = W;
+      maskCvs.height = H;
+      const mctx = maskCvs.getContext('2d');
+      mctx.drawImage(tc, 0, 0, W, H);
+      const imgData = mctx.getImageData(0, 0, W, H);
+      // Boost alpha: thin glyphs have low-alpha edges that look blurry after wet compositing
+      for (let i = 0; i < W * H; i++) {
+        const a = imgData.data[i * 4 + 3];
+        if (a > 0) imgData.data[i * 4 + 3] = Math.min(255, a * 3);
+      }
+      textImgRef.current = imgData;
+      needsRenderRef.current = true;
+    };
+
+    drawFunctionsRef.current = { text: drawText };
+
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('400 34px "Island Moments"')
+        .then(() => {
+          tctx.font = '400 34px "Island Moments", cursive';
+          const widest = Math.max(...FORTUNES.flat().map(l => tctx.measureText(l).width));
+          if (widest > maxLineWidth) {
+            fixedFontSize = Math.floor(34 * maxLineWidth / widest);
+          }
+          drawText();
+        })
+        .catch(() => drawText());
+    } else {
+      setTimeout(() => drawText(), 400);
+    }
+
+    maskImgRef.current = wctx.createImageData(W, H);
+  }, []);
+
+  // ── Render loop ──────────────────────────────────────────────
+  useEffect(() => {
+    const tick = (now) => {
+      const dt = Math.min(48, now - lastTRef.current);
+      lastTRef.current = now;
+      const wet    = wetRef.current;
+      const noise  = noiseRef.current;
+      const noise2 = noise2Ref.current;
+      const sources = sourcesRef.current;
+
+      for (const s of sources) {
+        if (s.active) {
+          const remaining = s.maxR - s.r;
+          const v = (remaining * 0.0011 + 0.014) * dt;
+          s.r = Math.min(s.maxR, s.r + v);
+        }
+      }
+
+      const AMP = 20;
+      const FEATHER = 8;
+      let dirty = false;
+      for (const s of sources) {
+        const R = s.r + AMP + FEATHER;
+        if (R < 1) continue;
+        const x0 = Math.max(0, Math.floor(s.x - R));
+        const x1 = Math.min(W, Math.ceil(s.x + R));
+        const y0 = Math.max(0, Math.floor(s.y - R));
+        const y1 = Math.min(H, Math.ceil(s.y + R));
+        const cx = s.x, cy = s.y, r = s.r;
+        const np = s.noisePhase;
+        const ns = s.noiseStretch;
+        for (let y = y0; y < y1; y++) {
+          const row = y * W;
+          for (let x = x0; x < x1; x++) {
+            const i = row + x;
+            if (wet[i] >= 1) continue;
+            const dx = (x - cx);
+            const dy = (y - cy) * ns;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const nx = ((x + np) % W + W) % W;
+            const ny = ((y + np * 2) % H + H) % H;
+            const nIdx = ny * W + nx;
+            const n = noise[nIdx];
+            const d = dist + n * AMP;
+            const t = (r - d) / FEATHER;
+            if (t <= 0) continue;
+            const w = t >= 1 ? 1 : t;
+            if (w > wet[i]) { wet[i] = w; dirty = true; }
+          }
+        }
+      }
+
+      if (isDryingRef.current) {
+        let anyWet = false;
+        for (let i = 0; i < W * H; i++) {
+          if (wet[i] > 0) {
+            wet[i] = Math.max(0, wet[i] - 0.0022 * dt);
+            if (wet[i] > 0) anyWet = true;
+          }
+        }
+        dirty = true;
+        if (!anyWet) {
+          isDryingRef.current = false;
+          // Callback is set by onReset; nulled here so it only fires once
+          const cb = dryCompleteRef.current;
+          dryCompleteRef.current = null;
+          if (cb) cb();
+        }
+      }
+
+      if (dirty || needsRenderRef.current) {
+        needsRenderRef.current = false;
+        const ctx  = wetCvsRef.current.getContext('2d');
+        const img  = maskImgRef.current;
+        const tImg = textImgRef.current;
+        const data = img.data;
+
+        for (let i = 0; i < W * H; i++) {
+          const w = wet[i];
+          if (w <= 0.005) { data[i*4 + 3] = 0; continue; }
+          const variance = (noise[i] * 0.5 + noise2[i] * 0.5);
+          let conc = Math.pow(w, 0.85) * (0.60 + variance * 0.44);
+          conc = Math.max(0, Math.min(1.05, conc));
+
+          const tc = Math.min(1, conc);
+          let r0 = 221 - tc * 52 + variance * 14;
+          let g0 = 235 - tc * 35 + variance * 9;
+          let b0 = 245 - tc * 19 + variance * 6;
+          let alpha = (0.46 + tc * 0.28) * 255;
+          // Tide-line: gaussian bump at w≈0.5 simulates capillary pigment buildup
+          const edge = Math.exp(-Math.pow((w - 0.50) * 4.0, 2)) * 0.26;
+          alpha += edge * 32;
+
+          // Porter-Duff over: ink (#2F6591) composited onto water color
+          if (tImg) {
+            const ta = tImg.data[i*4 + 3];
+            if (ta > 0) {
+              const inkA  = (ta / 255) * Math.min(1, w * 2.1);
+              const tintA = Math.min(1, alpha / 255);
+              const outA  = tintA + inkA * (1 - tintA);
+              const ir = 47, ig = 101, ib = 145;
+              const rr = (r0 * tintA * (1 - inkA) + ir * inkA) / (outA || 1);
+              const gg = (g0 * tintA * (1 - inkA) + ig * inkA) / (outA || 1);
+              const bb = (b0 * tintA * (1 - inkA) + ib * inkA) / (outA || 1);
+              r0 = rr; g0 = gg; b0 = bb;
+              alpha = outA * 255;
+            }
+          }
+          data[i*4]     = r0;
+          data[i*4 + 1] = g0;
+          data[i*4 + 2] = b0;
+          data[i*4 + 3] = Math.min(255, alpha);
+        }
+        // putImageData doesn't respect canvas transforms — blit via tmp canvas
+        if (!ctx._tmp) {
+          const tmp = document.createElement('canvas');
+          tmp.width = W; tmp.height = H;
+          ctx._tmp = tmp;
+          ctx._tmpCtx = tmp.getContext('2d');
+        }
+        ctx._tmpCtx.putImageData(img, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(ctx._tmp, 0, 0, W, H);
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  const onDown = useCallback((e) => {
+    initAudio(); playSound('press', 0.7);
+    const rect = cardRef.current.getBoundingClientRect();
+    let x = (e.clientX - rect.left) / rect.width  * W;
+    let y = (e.clientY - rect.top)  / rect.height * H;
+    x = Math.max(0, Math.min(W, x));
+    y = Math.max(0, Math.min(H, y));
+    sourcesRef.current.push({
+      x, y,
+      r: 12,
+      maxR: 148 + Math.random() * 22,
+      active: true,
+      noisePhase:   Math.floor(Math.random() * W),
+      noiseStretch: 0.85 + Math.random() * 0.3
+    });
+    pressedRef.current = true;
+    setPressing(true);
+    window.__spawnRipple(e.clientX, e.clientY, 0);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  }, []);
+
+  const releaseAll = useCallback(() => {
+    if (!pressedRef.current) return;
+    for (const s of sourcesRef.current) s.active = false;
+    pressedRef.current = false;
+    setPressing(false);
+  }, []);
+
+  const onReset = () => {
+    playSound('dryoff');
+    sourcesRef.current = [];
+    pressedRef.current = false;
+    setPressing(false);
+    isDryingRef.current = true;
+    dryCompleteRef.current = () => {
+      const prev = currentQuoteRef.current;
+      let next;
+      do { next = FORTUNES[Math.floor(Math.random() * FORTUNES.length)]; }
+      while (next === prev && FORTUNES.length > 1);
+      currentQuoteRef.current = next;
+      pressCountRef.current += 1;
+      drawFunctionsRef.current.text?.();
+      needsRenderRef.current = true;
+    };
+  };
+
+  useEffect(() => {
+    const up = () => releaseAll();
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [releaseAll]);
+
+  let cls = 'sticker-wrap';
+  if (pressing) cls += ' pressing';
+
+  return (
+    <div className="scene">
+      <div className="hint">
+        <span>press</span>
+        <span className="dot"></span>
+        <span>and hold</span>
+        <span className="dot"></span>
+        <span>to wet</span>
+      </div>
+      <div className={cls}>
+        <div className="card-bg" />
+        <div className="card-texture" />
+        <div className="card-inner-edge" />
+        <div className="card-area" ref={cardRef} onPointerDown={onDown}>
+          <canvas className="wet" ref={wetCvsRef} />
+        </div>
+      </div>
+      <button className="reset" onClick={onReset}>
+        <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+          <path d="M7 1 C 7 1, 1.5 7, 1.5 10.5 C 1.5 13.5, 4 15.5, 7 15.5 C 10 15.5, 12.5 13.5, 12.5 10.5 C 12.5 7, 7 1, 7 1 Z"
+                stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round"/>
+        </svg>
+        <span>dry off</span>
+      </button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<WetSticker />);
+</script>
+</body>
+</html>
