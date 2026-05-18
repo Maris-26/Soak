@@ -170,6 +170,15 @@
   }
   .reset svg { display: block; }
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2TLW6Y9HK0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-2TLW6Y9HK0');
+</script>
 </head>
 <body>
 <div class="water"></div>
@@ -649,6 +658,7 @@ function WetSticker() {
     pressedRef.current = true;
     setPressing(true);
     window.__spawnRipple(e.clientX, e.clientY, 0);
+    gtag('event', 'soak');
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
   }, []);
 
@@ -660,6 +670,7 @@ function WetSticker() {
   }, []);
 
   const onReset = () => {
+    gtag('event', 'dryoff');
     playSound('dryoff');
     sourcesRef.current = [];
     pressedRef.current = false;
